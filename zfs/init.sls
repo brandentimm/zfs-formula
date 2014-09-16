@@ -1,34 +1,32 @@
-# Completely ignore non-RHEL based systems
-{% if grains['os_family'] == 'RedHat' %}
-
+{% from 'zfs/map.jinja' import zfs with context %}
+# Completely ignore non-RHEL or Debian based systems
+{% if grains['os_family'] == 'RedHat' and grains['osmajorrelease'][0] in [6, 7] %}
 include:
   - epel-formula
 
-{% if grains['osmajorrelease'][0] == '6' %}
-  {% set pkg = {
-    'rpm': 'http://archive.zfsonlinux.org/epel/zfs-release.el6.noarch.rpm',
-  } %}
-{% elif grains['osmajorrelease'][0] == '7' %}
-  {% set pkg = {
-    'rpm': 'http://archive.zfsonlinux.org/epel/zfs-release.el7.noarch.rpm',
-  } %}
-{% endif %}
-
-zfs_release:
-  pkg:
-    - installed
+Install ZoL rpm repository:
+  pkg.installed
     - sources:
-      - zfs-release: {{ pkg.rpm }}
+      - zfs-release: {{ zfs.rpmrepo }}
     - skip_verify: True
     - require:
       - pkg: epel_release
 
-zfs:
-  pkg.installed:
-    - pkgs:
-      - kernel-devel
-      - zfs
+Install kernel-devel:
+  pkg.installed
+
+Install zfs:
+  pkg.{{ zfs.pkgstate }}:
+    - name: {{ zfs.pkg }}
     - require:
       - pkg: zfs_release
+{%- elif grains['os_family'] == 'Debian' %}
+Install ZoL PPA:
+  pkgrepo.managed:
+    ppa: zfs-native/stable 
 
+Install zfs:
+  pkg.installed:
+    - require:
+      - pkg: zfs_repo
 {% endif %}
